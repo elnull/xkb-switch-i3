@@ -1,92 +1,92 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6...3.28)
+cmake_minimum_required(VERSION 3.16)
 
-PROJECT( XKB-SWITCH )
-SET(MAJOR_VERSION 2)
-SET(MINOR_VERSION 0)
-SET(RELEASE_VERSION 1)
-SET(I3_VERSION 5)
-SET(XKBSWITCH_VERSION ${MAJOR_VERSION}.${MINOR_VERSION}.${RELEASE_VERSION}+i3-${I3_VERSION})
-ADD_DEFINITIONS(-DXKBSWITCH_VERSION="${XKBSWITCH_VERSION}")
+project(XKB-SWITCH VERSION 2.0.1 LANGUAGES CXX)
 
-# Check presence of development libraries required for build
-FIND_PACKAGE(X11 REQUIRED)
-if(NOT X11_FOUND)
-    MESSAGE(FATAL_ERROR "Not found development files of 'libx11' required for build. (Install libx11-dev or libx11-devel package.) CMake will exit.")
-elseif(NOT X11_Xkbfile_FOUND)
-    MESSAGE(FATAL_ERROR "Not found development files of 'libxkbfile' required for build. (Install libxkbfile-dev or libxkbfile-devel package.) CMake will exit.")
-endif()
-INCLUDE_DIRECTORIES(${X11_INCLUDE_DIR})
-LINK_DIRECTORIES(${X11_LIBRARY_DIR})
+# Enable modern CMake behavior
+cmake_policy(SET CMP0074 NEW)
 
-ADD_SUBDIRECTORY(i3ipc++)
+# Version string including i3 compatibility
+set(I3_VERSION 5)
+set(XKBSWITCH_VERSION "${PROJECT_VERSION}+i3-${I3_VERSION}")
+add_definitions(-DXKBSWITCH_VERSION="${XKBSWITCH_VERSION}")
 
-INCLUDE_DIRECTORIES(${I3IPCpp_INCLUDE_DIRS})
-LINK_DIRECTORIES(${I3IPCpp_LIBRARY_DIRS})
+find_package(PkgConfig REQUIRED)
+find_package(X11 REQUIRED)
+pkg_check_modules(XKBFILE REQUIRED xkbfile)
 
-# Compile and link program
-OPTION(BUILD_XKBSWITCH_LIB
-    "Build a library compatible with vim's libcall interface" ON)
+add_subdirectory(i3ipc++)
+
+# Option to build library for vim's libcall interface
+option(BUILD_XKBSWITCH_LIB "Build a library compatible with vim's libcall interface" ON)
+
+# Build shared library if option is enabled
 if(BUILD_XKBSWITCH_LIB)
-    SET(xkblib xkbswitch)
-    ADD_LIBRARY(${xkblib} SHARED src/XKbSwitchApi.cpp src/XKeyboard.cpp)
-    SET_TARGET_PROPERTIES(${xkblib} PROPERTIES VERSION ${XKBSWITCH_VERSION} SOVERSION ${MAJOR_VERSION})
-    TARGET_LINK_LIBRARIES(${xkblib} X11 xkbfile)
-    ADD_EXECUTABLE(xkb-switch src/XKbSwitch.cpp)
-    TARGET_LINK_LIBRARIES(xkb-switch ${xkblib} ${I3IPCpp_LIBRARIES})
-else()
-    ADD_EXECUTABLE(xkb-switch src/XKbSwitch.cpp src/XKeyboard.cpp)
-    TARGET_LINK_LIBRARIES(xkb-switch X11 xkbfile)
+    add_library(xkbswitch SHARED src/XKbSwitchApi.cpp src/XKeyboard.cpp src/Utils.hpp)
+    set_target_properties(xkbswitch PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+        POSITION_INDEPENDENT_CODE ON
+    )
+    target_include_directories(xkbswitch PUBLIC ${X11_INCLUDE_DIR} ${XKBFILE_INCLUDE_DIRS})
+    target_link_libraries(xkbswitch PUBLIC X11::Xkb ${XKBFILE_LIBRARIES})
 endif()
 
-# Install program
-INSTALL(TARGETS xkb-switch ${xkblib}
+# Build executable
+add_executable(xkb-switch src/XKbSwitch.cpp src/XKeyboard.cpp src/Utils.hpp)
+target_include_directories(xkb-switch PRIVATE ${X11_INCLUDE_DIR} ${XKBFILE_INCLUDE_DIRS})
+target_link_libraries(xkb-switch PRIVATE X11::Xkb ${XKBFILE_LIBRARIES} i3ipc++)
+
+# Installation rules
+install(TARGETS xkb-switch xkbswitch
     RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib OPTIONAL
+    LIBRARY DESTINATION lib
 )
 
-SET(MAN_COMPRESSION "gzip" CACHE STRING "Manpages compression tool")
-SET(MANDIR "${CMAKE_INSTALL_PREFIX}/share/man" CACHE STRING "Manpages installation path")
+# Install header files
+install(FILES src/XKeyboard.hpp src/Utils.hpp DESTINATION include)
 
-# Function to compress and install man page
-# Gets file name and type number
+# Man page compression settings
+set(MAN_COMPRESSION "gzip" CACHE STRING "Manpages compression tool")
+set(MANDIR "${CMAKE_INSTALL_PREFIX}/share/man" CACHE PATH "Manpages installation path")
+
+# Function to compress and install man pages
 function(install_man man_filename man_type)
-    # check what compression tool is available
-    FIND_PROGRAM(COMPRESS_EXECUTABLE NAMES ${MAN_COMPRESSION})
+    # Check for available compression tool
+    find_program(COMPRESS_EXECUTABLE NAMES ${MAN_COMPRESSION})
     if(NOT COMPRESS_EXECUTABLE)
-      SET(MAN_COMPRESSION NO)
+        set(MAN_COMPRESSION "NO")
     endif()
-    # set input an output file names
-    SET(raw_man man/${man_filename}.${man_type})
-    # compress if there is the compression tool
-    if(MAN_COMPRESSION)
-      if(COMPRESS_EXECUTABLE MATCHES "gzip")
-          SET(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type}.gz)
+
+    set(raw_man man/${man_filename}.${man_type})
+
+    if(MAN_COMPRESSION AND NOT "${MAN_COMPRESSION}" STREQUAL "NO")
+        if(COMPRESS_EXECUTABLE MATCHES "gzip")
+            set(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type}.gz)
         else()
-          SET(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type}.${MAN_COMPRESSION})
+            set(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type}.${MAN_COMPRESSION})
         endif()
-        ADD_CUSTOM_COMMAND(OUTPUT ${installed_man}
-            COMMAND cat ${raw_man} | ${COMPRESS_EXECUTABLE} > ${installed_man}
+
+        add_custom_command(OUTPUT ${installed_man}
+            COMMAND ${CMAKE_COMMAND} -E echo "Compressing ${raw_man}..."
+            COMMAND ${COMPRESS_EXECUTABLE} -c ${raw_man} > ${installed_man}
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
             DEPENDS ${raw_man}
             COMMENT "Compressing man file ${raw_man} to ${installed_man}"
         )
-    # elsewise just copy
     else()
-        SET(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type})
-        MESSAGE(WARNING "There is no compression tool for man pages. Not compressed copy of man file will be used.")
-        ADD_CUSTOM_COMMAND(OUTPUT ${installed_man}
-            COMMAND cp ${raw_man} ${CMAKE_BINARY_DIR}
+        set(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type})
+        message(WARNING "There is no compression tool for man pages. Not compressed copy of man file will be used.")
+        add_custom_command(OUTPUT ${installed_man}
+            COMMAND ${CMAKE_COMMAND} -E copy ${raw_man} ${installed_man}
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
             DEPENDS ${raw_man}
             COMMENT "Copying man file from ${raw_man}."
         )
     endif()
-    # add actions
-    ADD_CUSTOM_TARGET(man_${man_filename}_${man_type} ALL DEPENDS ${installed_man})
-    INSTALL(FILES ${installed_man}
-        DESTINATION ${MANDIR}/man${man_type}
-    )
+
+    add_custom_target(man_${man_filename}_${man_type} ALL DEPENDS ${installed_man})
+    install(FILES ${installed_man} DESTINATION ${MANDIR}/man${man_type})
 endfunction()
 
-# Compress and install man page
+# Install man page
 install_man(xkb-switch 1)
