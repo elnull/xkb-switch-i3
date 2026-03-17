@@ -61,7 +61,7 @@ string print_layouts(const string_vector& sv)
   bool fst = true;
 
   oss << "[";
-  for(string_vector::const_iterator i=sv.begin(); i!=sv.end(); i++) {
+  for(string_vector::const_iterator i=sv.begin(); i!=sv.end(); ++i) {
     if(!fst) oss << " ";
     oss << *i;
     fst = false;
