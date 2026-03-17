@@ -154,7 +154,7 @@ void XKeyboard::build_layout_from(string_vector& out, const layout_variant_strin
     }
     if(l!="") {
       MSG(_verbose, "... accepting with id #" << out.size());
-      out.push_back(l+v);
+      out.emplace_back(l+v);
     }
     else {
       MSG(_verbose, "... ignoring");
