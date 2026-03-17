@@ -32,9 +32,9 @@ if(BUILD_XKBSWITCH_LIB)
 endif()
 
 # Build executable
-add_executable(xkb-switch src/XKbSwitch.cpp src/XKeyboard.cpp src/Utils.hpp)
+add_executable(xkb-switch src/XKbSwitch.cpp src/Utils.hpp)
 target_include_directories(xkb-switch PRIVATE ${X11_INCLUDE_DIR} ${XKBFILE_INCLUDE_DIRS})
-target_link_libraries(xkb-switch PRIVATE X11::Xkb ${XKBFILE_LIBRARIES} i3ipc++)
+target_link_libraries(xkb-switch PRIVATE X11::Xkb ${XKBFILE_LIBRARIES} xkbswitch i3ipc++)
 
 # Installation rules
 install(TARGETS xkb-switch xkbswitch
