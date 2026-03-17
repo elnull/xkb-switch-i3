@@ -5,6 +5,8 @@ project(XKB-SWITCH VERSION 2.0.1 LANGUAGES CXX)
 # Enable modern CMake behavior
 cmake_policy(SET CMP0074 NEW)
 
+include(GNUInstallDirs)
+
 # Version string including i3 compatibility
 set(I3_VERSION 5)
 set(XKBSWITCH_VERSION "${PROJECT_VERSION}+i3-${I3_VERSION}")
@@ -38,16 +40,16 @@ target_link_libraries(xkb-switch PRIVATE X11::Xkb ${XKBFILE_LIBRARIES} xkbswitch
 
 # Installation rules
 install(TARGETS xkb-switch xkbswitch
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 # Install header files
-install(FILES src/XKeyboard.hpp src/Utils.hpp DESTINATION include)
+install(FILES src/XKeyboard.hpp src/Utils.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Man page compression settings
 set(MAN_COMPRESSION "gzip" CACHE STRING "Manpages compression tool")
-set(MANDIR "${CMAKE_INSTALL_PREFIX}/share/man" CACHE PATH "Manpages installation path")
+set(MANDIR "${CMAKE_INSTALL_MANDIR}" CACHE PATH "Manpages installation path")
 
 # Function to compress and install man pages
 function(install_man man_filename man_type)
