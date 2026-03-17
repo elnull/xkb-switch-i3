@@ -149,10 +149,10 @@ void XKeyboard::build_layout_from(string_vector& out, const layout_variant_strin
       break;
     }
 
-    if(v!="") {
+    if(!v.empty()) {
       v = "(" + v + ")";
     }
-    if(l!="") {
+    if(!l.empty()) {
       MSG(_verbose, "... accepting with id #" << out.size());
       out.emplace_back(l+v);
     }
